@@ -1,38 +1,56 @@
-// 숲(SOOP) 라이브 목록 가져오기
-export async function getSoopLives(category?: string) {
-  try {
-    const params = new URLSearchParams({
-      nPageNo: '1',
-      nListCnt: '60',
-      szOrder: 'view_cnt',
-      ...(category ? { szCateNo: category } : {}),
-    })
+async function fetchSoopPage(page: number) {
+  const params = new URLSearchParams({
+    nPageNo: String(page),
+    nListCnt: '20',
+    szOrder: 'view_cnt',
+    szType: 'json',
+  })
 
-    const res = await fetch(
-      `http://api.m.afreecatv.com/broad/a/items?${params}`,
-      {
-        headers: {
-          Referer: 'https://www.sooplive.co.kr',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Accept: 'application/json',
-        },
-        next: { revalidate: 60 },
-      }
+  const res = await fetch(
+    `https://api.m.afreecatv.com/broad/a/items?${params}`,
+    {
+      headers: {
+        Referer: 'https://www.sooplive.co.kr',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'application/json',
+      },
+      next: { revalidate: 60 },
+    }
+  )
+
+  const text = await res.text()
+  if (!text || text.trim() === '') return []
+
+  const data = JSON.parse(text)
+  const groups = data?.data?.groups || []
+  const lives: any[] = []
+  for (const group of groups) {
+    lives.push(...(group?.contents || []))
+  }
+  return lives
+}
+
+export async function getSoopLives() {
+  try {
+    // 20페이지 동시 수집 (최대 400개)
+    const pages = await Promise.all(
+      Array.from({ length: 20 }, (_, i) => fetchSoopPage(i + 1))
+    )
+    const all = pages.flat()
+
+    // 한글 제목 방송만 필터링
+    const koreanOnly = all.filter((live: any) =>
+      /[가-힣]/.test(live.title || '')
     )
 
-    const text = await res.text()
-    if (!text || text.trim() === '') return []
+    // 중복 제거
+    const unique = Array.from(
+      new Map(koreanOnly.map((l: any) => [l.broad_no, l])).values()
+    )
 
-    const data = JSON.parse(text)
-    const groups = data?.data?.groups || []
-    const lives: any[] = []
+    console.log('숲 수집:', all.length, '/ 한국어:', unique.length)
 
-    for (const group of groups) {
-      const contents = group?.contents || []
-      lives.push(...contents)
-    }
-
-    return lives.map((live: any) => ({
+    return unique.map((live: any) => ({
       id: live.broad_no,
       platform: 'soop',
       streamer: live.user_nick || '알 수 없음',
