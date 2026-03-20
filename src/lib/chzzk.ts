@@ -1,8 +1,8 @@
 // 치지직 공식 API로 라이브 목록 가져오기
 export async function getChzzkLives(category?: string) {
   try {
-    // Client 인증 토큰 먼저 발급
-    const tokenRes = await fetch('https://api.chzzk.naver.com/auth/v1/token', {
+    // Client 인증 토큰 발급
+    const tokenRes = await fetch('https://auth.chzzk.naver.com/auth/v1/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -11,10 +11,14 @@ export async function getChzzkLives(category?: string) {
         clientSecret: process.env.CHZZK_CLIENT_SECRET,
       }),
     })
+
     const tokenData = await tokenRes.json()
     const accessToken = tokenData.content?.accessToken
 
-    if (!accessToken) throw new Error('치지직 토큰 발급 실패')
+    if (!accessToken) {
+      console.error('치지직 토큰 발급 실패:', tokenData)
+      return []
+    }
 
     // 라이브 목록 조회
     const livesRes = await fetch(
@@ -23,9 +27,11 @@ export async function getChzzkLives(category?: string) {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
+          'Client-Id': process.env.CHZZK_CLIENT_ID || '',
         },
       }
     )
+
     const livesData = await livesRes.json()
 
     return (livesData.content?.data || []).map((live: any) => ({
@@ -47,7 +53,7 @@ export async function getChzzkLives(category?: string) {
   }
 }
 
-// 치지직 서버 방송 감지 (제목에 서버명 포함된 것 필터링)
+// 치지직 서버 방송 감지
 export function filterServerStreams(lives: any[], serverKeywords: string[]) {
   return lives.filter((live) =>
     serverKeywords.some(
