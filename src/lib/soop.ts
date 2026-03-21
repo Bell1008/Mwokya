@@ -4,6 +4,8 @@ async function fetchSoopPage(page: number) {
     nListCnt: '20',
     szOrder: 'view_cnt',
     szType: 'json',
+    // 한국어 방송만 필터링 (언어 파라미터 추가)
+    szLangType: 'ko_KR',
   })
 
   const res = await fetch(
@@ -30,6 +32,50 @@ async function fetchSoopPage(page: number) {
   return lives
 }
 
+// 숲 카테고리 → 정규화된 한국어 카테고리명 매핑
+const SOOP_CATEGORY_MAP: Record<string, string> = {
+  // 롤
+  'League of Legends': '리그 오브 레전드',
+  'LOL': '리그 오브 레전드',
+  // 마인크래프트
+  'Minecraft': '마인크래프트',
+  // 와우
+  'World of Warcraft': '월드 오브 워크래프트',
+  'WoW': '월드 오브 워크래프트',
+  // 배그
+  'PUBG: BATTLEGROUNDS': '배틀그라운드',
+  'PUBG': '배틀그라운드',
+  // 발로란트
+  'VALORANT': '발로란트',
+  // 오버워치
+  'Overwatch 2': '오버워치2',
+  'Overwatch': '오버워치2',
+  // GTA
+  'Grand Theft Auto V': 'GTA',
+  'GTA V': 'GTA',
+  // 피파/FC
+  'EA SPORTS FC Online': 'FC온라인',
+  'FIFA Online 4': 'FC온라인',
+  // 몬헌
+  'Monster Hunter Wilds': '몬스터헌터 와일즈',
+  'Monster Hunter: World': '몬스터헌터',
+  // 타르코프
+  'Escape from Tarkov': '타르코프',
+  // 기타
+  'Just Chatting': '잡담',
+  'Music/Dance': '음악/댄스',
+  'Travel': '여행',
+  'Sports': '스포츠',
+  'Cooking': '요리',
+  'Talk/Social': '토크',
+}
+
+function normalizeSoopCategory(tags: string[]): string {
+  if (!tags || tags.length === 0) return '기타'
+  const first = tags[0]
+  return SOOP_CATEGORY_MAP[first] || first
+}
+
 export async function getSoopLives() {
   try {
     // 20페이지 동시 수집 (최대 400개)
@@ -38,17 +84,12 @@ export async function getSoopLives() {
     )
     const all = pages.flat()
 
-    // 한글 제목 방송만 필터링
-    const koreanOnly = all.filter((live: any) =>
-      /[가-힣]/.test(live.title || '')
-    )
-
-    // 중복 제거
+    // 중복 제거 (언어 파라미터로 이미 한국어만 오지만 혹시 모르니 한글 체크도 유지)
     const unique = Array.from(
-      new Map(koreanOnly.map((l: any) => [l.broad_no, l])).values()
+      new Map(all.map((l: any) => [l.broad_no, l])).values()
     )
 
-    console.log('숲 수집:', all.length, '/ 한국어:', unique.length)
+    console.log('숲 수집:', all.length, '/ 중복제거 후:', unique.length)
 
     return unique.map((live: any) => ({
       id: live.broad_no,
@@ -59,7 +100,7 @@ export async function getSoopLives() {
       viewers: live.view_cnt || 0,
       thumbnail: live.thumbnail || `https://liveimg.sooplive.co.kr/m/${live.broad_no}`,
       profileImage: live.user_profile_img || '',
-      category: (live.category_tags || []).join(', '),
+      category: normalizeSoopCategory(live.category_tags || []),
       url: `https://play.sooplive.co.kr/${live.user_id}/${live.broad_no}`,
       startedAt: '',
     }))

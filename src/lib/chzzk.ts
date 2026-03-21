@@ -34,14 +34,17 @@ export async function getChzzkLives() {
     return allLives.map((live: any) => ({
       id: live.liveId,
       platform: 'chzzk',
-      streamer: live.channel?.channelName || '알 수 없음',
-      streamerId: live.channel?.channelId,
+      // ✅ channel 중첩 없이 최상위에 바로 있음
+      streamer: live.channelName || '알 수 없음',
+      streamerId: live.channelId,
       title: live.liveTitle || '',
       viewers: live.concurrentUserCount || 0,
-      thumbnail: live.liveImageUrl,
-      profileImage: live.channel?.channelImageUrl,
-      category: live.liveCategoryValue || '',
-      url: `https://chzzk.naver.com/live/${live.channel?.channelId}`,
+      // ✅ liveImageUrl → liveThumbnailImageUrl, {type}을 thumb으로 교체
+      thumbnail: live.liveThumbnailImageUrl?.replace('{type}', 'thumb') || '',
+      profileImage: live.channelImageUrl || '',
+      // ✅ liveCategoryValue가 한국어 카테고리명 (예: "리그 오브 레전드")
+      category: live.liveCategoryValue || live.liveCategory || '',
+      url: `https://chzzk.naver.com/live/${live.channelId}`,
       startedAt: live.openDate,
     }))
   } catch (e) {
