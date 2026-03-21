@@ -1,9 +1,10 @@
 async function fetchSoopPage(page: number) {
   const params = new URLSearchParams({
     nPageNo: String(page),
-    nListCnt: '20',
+    nListCnt: '50',       // 한 번에 50개씩 (최대값)
     szOrder: 'view_cnt',
     szType: 'json',
+    szLangType: 'ko_KR',  // 한국어 방송만 요청
   })
 
   const res = await fetch(
@@ -13,6 +14,7 @@ async function fetchSoopPage(page: number) {
         Referer: 'https://www.sooplive.co.kr',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         Accept: 'application/json',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
       },
       next: { revalidate: 60 },
     }
@@ -21,13 +23,17 @@ async function fetchSoopPage(page: number) {
   const text = await res.text()
   if (!text || text.trim() === '') return []
 
-  const data = JSON.parse(text)
-  const groups = data?.data?.groups || []
-  const lives: any[] = []
-  for (const group of groups) {
-    lives.push(...(group?.contents || []))
+  try {
+    const data = JSON.parse(text)
+    const groups = data?.data?.groups || []
+    const lives: any[] = []
+    for (const group of groups) {
+      lives.push(...(group?.contents || []))
+    }
+    return lives
+  } catch {
+    return []
   }
-  return lives
 }
 
 // 숲 카테고리 → 정규화된 한국어 카테고리명 매핑
@@ -63,7 +69,7 @@ function normalizeSoopCategory(tags: string[]): string {
   return SOOP_CATEGORY_MAP[first] || first
 }
 
-// 한국어 방송 판별: 한글 포함 OR 한국어 언어태그 OR 한글 닉네임
+// 한국어 방송 판별 (3중 체크)
 function isKoreanStream(live: any): boolean {
   const hasKoreanTitle = /[가-힣]/.test(live.title || '')
   const hasKoreanLangTag = (live.lang_tags || []).includes('Korean') ||
@@ -74,13 +80,13 @@ function isKoreanStream(live: any): boolean {
 
 export async function getSoopLives() {
   try {
-    // 20페이지 동시 수집 (최대 400개)
+    // szLangType=ko_KR 파라미터로 한국어 방송만 요청 + 10페이지 (최대 500개)
     const pages = await Promise.all(
-      Array.from({ length: 20 }, (_, i) => fetchSoopPage(i + 1))
+      Array.from({ length: 10 }, (_, i) => fetchSoopPage(i + 1))
     )
     const all = pages.flat()
 
-    // 한국어 방송만 필터링 (제목 한글 OR 언어태그 Korean OR 닉네임 한글)
+    // 혹시 외국 방송 섞이면 추가 필터
     const koreanOnly = all.filter(isKoreanStream)
 
     // 중복 제거
