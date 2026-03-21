@@ -7,9 +7,8 @@ export async function getChzzkLives() {
     let allLives: any[] = []
     let next: string | null = null
 
-    // 최대 10번 페이지네이션
     for (let i = 0; i < 10; i++) {
-      const url = next
+      const url: string = next
         ? `https://openapi.chzzk.naver.com/open/v1/lives?size=20&next=${next}`
         : `https://openapi.chzzk.naver.com/open/v1/lives?size=20`
 
