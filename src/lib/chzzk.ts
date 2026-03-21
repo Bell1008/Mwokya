@@ -39,8 +39,10 @@ export async function getChzzkLives() {
       streamerId: live.channelId,
       title: live.liveTitle || '',
       viewers: live.concurrentUserCount || 0,
-      // ✅ liveImageUrl → liveThumbnailImageUrl, {type}을 thumb으로 교체
-      thumbnail: live.liveThumbnailImageUrl?.replace('{type}', 'thumb') || '',
+      // {type} → 360p 로 교체 (치지직 썸네일 표준 사이즈)
+      thumbnail: live.liveThumbnailImageUrl
+        ? live.liveThumbnailImageUrl.replace('{type}', '360p')
+        : '',
       profileImage: live.channelImageUrl || '',
       // ✅ liveCategoryValue가 한국어 카테고리명 (예: "리그 오브 레전드")
       category: live.liveCategoryValue || live.liveCategory || '',

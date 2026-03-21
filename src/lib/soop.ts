@@ -4,8 +4,6 @@ async function fetchSoopPage(page: number) {
     nListCnt: '20',
     szOrder: 'view_cnt',
     szType: 'json',
-    // 한국어 방송만 필터링 (언어 파라미터 추가)
-    szLangType: 'ko_KR',
   })
 
   const res = await fetch(
@@ -34,34 +32,23 @@ async function fetchSoopPage(page: number) {
 
 // 숲 카테고리 → 정규화된 한국어 카테고리명 매핑
 const SOOP_CATEGORY_MAP: Record<string, string> = {
-  // 롤
   'League of Legends': '리그 오브 레전드',
   'LOL': '리그 오브 레전드',
-  // 마인크래프트
   'Minecraft': '마인크래프트',
-  // 와우
   'World of Warcraft': '월드 오브 워크래프트',
   'WoW': '월드 오브 워크래프트',
-  // 배그
   'PUBG: BATTLEGROUNDS': '배틀그라운드',
   'PUBG': '배틀그라운드',
-  // 발로란트
   'VALORANT': '발로란트',
-  // 오버워치
   'Overwatch 2': '오버워치2',
   'Overwatch': '오버워치2',
-  // GTA
   'Grand Theft Auto V': 'GTA',
   'GTA V': 'GTA',
-  // 피파/FC
   'EA SPORTS FC Online': 'FC온라인',
   'FIFA Online 4': 'FC온라인',
-  // 몬헌
   'Monster Hunter Wilds': '몬스터헌터 와일즈',
   'Monster Hunter: World': '몬스터헌터',
-  // 타르코프
   'Escape from Tarkov': '타르코프',
-  // 기타
   'Just Chatting': '잡담',
   'Music/Dance': '음악/댄스',
   'Travel': '여행',
@@ -76,6 +63,15 @@ function normalizeSoopCategory(tags: string[]): string {
   return SOOP_CATEGORY_MAP[first] || first
 }
 
+// 한국어 방송 판별: 한글 포함 OR 한국어 언어태그 OR 한글 닉네임
+function isKoreanStream(live: any): boolean {
+  const hasKoreanTitle = /[가-힣]/.test(live.title || '')
+  const hasKoreanLangTag = (live.lang_tags || []).includes('Korean') ||
+    live.strm_lang_type === 'ko_KR'
+  const hasKoreanNick = /[가-힣]/.test(live.user_nick || '')
+  return hasKoreanTitle || hasKoreanLangTag || hasKoreanNick
+}
+
 export async function getSoopLives() {
   try {
     // 20페이지 동시 수집 (최대 400개)
@@ -84,12 +80,15 @@ export async function getSoopLives() {
     )
     const all = pages.flat()
 
-    // 중복 제거 (언어 파라미터로 이미 한국어만 오지만 혹시 모르니 한글 체크도 유지)
+    // 한국어 방송만 필터링 (제목 한글 OR 언어태그 Korean OR 닉네임 한글)
+    const koreanOnly = all.filter(isKoreanStream)
+
+    // 중복 제거
     const unique = Array.from(
-      new Map(all.map((l: any) => [l.broad_no, l])).values()
+      new Map(koreanOnly.map((l: any) => [l.broad_no, l])).values()
     )
 
-    console.log('숲 수집:', all.length, '/ 중복제거 후:', unique.length)
+    console.log('숲 수집:', all.length, '/ 한국어:', unique.length)
 
     return unique.map((live: any) => ({
       id: live.broad_no,
