@@ -1,22 +1,38 @@
-import { ChzzkClient } from 'chzzk'
-
-const client = new ChzzkClient()
-
+// 치지직 공식 Open API
 export async function getChzzkLives() {
   try {
-    // 여러 페이지 동시 수집
-    const requests = Array.from({ length: 10 }, (_, i) =>
-      client.search.lives('', { size: 50, offset: i * 50 })
-    )
-    const results = await Promise.all(requests)
-    const lives = results.flatMap((r: any) => r?.lives || [])
+    const clientId = process.env.CHZZK_CLIENT_ID || ''
+    const clientSecret = process.env.CHZZK_CLIENT_SECRET || ''
 
-    // 중복 제거
-    const unique = Array.from(new Map(lives.map((l: any) => [l.liveId, l])).values())
+    let allLives: any[] = []
+    let next: string | null = null
 
-    console.log('치지직 수집:', unique.length)
+    // 최대 10번 페이지네이션
+    for (let i = 0; i < 10; i++) {
+      const url = next
+        ? `https://openapi.chzzk.naver.com/open/v1/lives?size=20&next=${next}`
+        : `https://openapi.chzzk.naver.com/open/v1/lives?size=20`
 
-    return unique.map((live: any) => ({
+      const res = await fetch(url, {
+        headers: {
+          'Client-Id': clientId,
+          'Client-Secret': clientSecret,
+          'Content-Type': 'application/json',
+        },
+        next: { revalidate: 60 },
+      })
+
+      const data = await res.json()
+      const lives = data?.content?.data || []
+      allLives.push(...lives)
+
+      next = data?.content?.page?.next || null
+      if (!next || lives.length === 0) break
+    }
+
+    console.log('치지직 수집:', allLives.length)
+
+    return allLives.map((live: any) => ({
       id: live.liveId,
       platform: 'chzzk',
       streamer: live.channel?.channelName || '알 수 없음',
