@@ -22,7 +22,7 @@ export async function getChzzkLives() {
           'Client-Secret': clientSecret,
           'Content-Type': 'application/json',
         },
-        cache: 'no-store',
+        next: { revalidate: 60 },  // no-store 대신 60초 캐시로 변경
       })
 
       if (!res.ok) {

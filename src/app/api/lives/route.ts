@@ -1,7 +1,9 @@
 import { getLivesByCategory } from '@/lib/streams'
 import { NextResponse } from 'next/server'
 
-export const revalidate = 60
+// 동적 라우트로 명시 (빌드 타임 정적 생성 방지)
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function GET() {
   try {
